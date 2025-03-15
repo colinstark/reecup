@@ -13,7 +13,7 @@ func (s *Set) AddStone(idx int, stone Stone) {
 	newStones := make([]Stone, 0, len(s.Stones)+1)
 	newStones = append(newStones, s.Stones[:idx]...)
 	newStones = append(newStones, stone)
-	newStones = append(newStones, s.Stones[idx+1:]...)
+	newStones = append(newStones, s.Stones[idx:]...)
 
 	s.Stones = newStones
 }
@@ -22,25 +22,35 @@ func (s *Set) RemoveStone(idx int) Stone {
 	if idx < 0 || idx > len(s.Stones) {
 		return Stone{}
 	}
+
+	oldStone := s.Stones[idx]
 	newStones := make([]Stone, 0, len(s.Stones)-1)
-	newStones = append(newStones, s.Stones[:idx]...)
+	if idx > 0 {
+		newStones = append(newStones, s.Stones[:idx]...)
+	}
 	newStones = append(newStones, s.Stones[idx+1:]...)
 
 	s.Stones = newStones
-	return s.Stones[idx]
+	return oldStone
+}
+
+func (s *Set) MoveStone(old int, new int) {
+	if old < 0 || old >= len(s.Stones) || new < 0 || new >= len(s.Stones) {
+		return
+	}
+
+	stone := s.Stones[old]
+	s.Stones[old] = s.Stones[new]
+	s.Stones[new] = stone
+
 }
 
 func (s *Set) Split(idx int) Set {
 	left := s.Stones[:idx]
-	right := s.Stones[idx+1:]
+	right := s.Stones[idx:]
 	s.Stones = left
 
 	return Set{Stones: right}
-}
-
-func (s *Set) Move(old int, new int) {
-	stone := s.RemoveStone(old)
-	s.AddStone(new, stone)
 }
 
 func (s *Set) Validate() bool {

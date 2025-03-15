@@ -1,6 +1,7 @@
 package game
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -138,5 +139,158 @@ func TestRunColorFailing(t *testing.T) {
 
 	if set.Validate() == true {
 		t.Error("Run Color failing failed")
+	}
+}
+
+func TestAddingStone(t *testing.T) {
+	set := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+		},
+	}
+	targetSet := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "black", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+		},
+	}
+
+	newStone := Stone{Face: 9, Color: "black", Joker: false}
+
+	set.AddStone(2, newStone)
+	equal := reflect.DeepEqual(set, targetSet)
+
+	if !equal {
+		t.Error("Adding stone failed")
+	}
+}
+
+func TestAddingStoneAtZero(t *testing.T) {
+	set := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+		},
+	}
+	targetSet := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "black", Joker: false},
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+		},
+	}
+
+	newStone := Stone{Face: 9, Color: "black", Joker: false}
+	set.AddStone(0, newStone)
+
+	equal := reflect.DeepEqual(set, targetSet)
+
+	if !equal {
+		t.Error("Adding stone at zero failed")
+	}
+}
+
+func TestRemovingStone(t *testing.T) {
+	set := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+		},
+	}
+	targetSet := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+		},
+	}
+
+	set.RemoveStone(1)
+	equal := reflect.DeepEqual(set, targetSet)
+
+	if !equal {
+		t.Error("Removing stone failed")
+	}
+}
+
+func TestRemovingStoneAtZero(t *testing.T) {
+	set := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+		},
+	}
+	targetSet := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+		},
+	}
+
+	set.RemoveStone(0)
+	equal := reflect.DeepEqual(set, targetSet)
+
+	if !equal {
+		t.Error("Removing stone failed")
+	}
+}
+
+func TestMovingStone(t *testing.T) {
+	set := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+			Stone{Face: 9, Color: "black", Joker: false},
+		},
+	}
+	targetSet := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "black", Joker: false},
+		},
+	}
+
+	set.MoveStone(2, 1)
+
+	equal := reflect.DeepEqual(set, targetSet)
+
+	if !equal {
+		t.Error("Moving stone failed")
+	}
+}
+func TestMovingStoneToZero(t *testing.T) {
+	set := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+			Stone{Face: 9, Color: "black", Joker: false},
+		},
+	}
+	targetSet := Set{
+		Stones: []Stone{
+			Stone{Face: 9, Color: "yellow", Joker: false},
+			Stone{Face: 9, Color: "red", Joker: false},
+			Stone{Face: 9, Color: "blue", Joker: false},
+			Stone{Face: 9, Color: "black", Joker: false},
+		},
+	}
+
+	set.MoveStone(1, 0)
+
+	equal := reflect.DeepEqual(set, targetSet)
+
+	if !equal {
+		t.Error("Moving stone failed")
 	}
 }
