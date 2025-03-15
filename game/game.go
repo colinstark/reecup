@@ -1,31 +1,32 @@
 package game
 
 import (
-	"math/rand"
+	"reecup/utils"
+	"time"
 )
 
 type Game struct {
-	id       string
-	Board    Board
-	Deck     Deck
-	Players  []Player
-	GameOver bool
+	ID          string    `json:"id"`
+	StartedAt   time.Time `json:"startedAt"`
+	Board       Board     `json:"board"`
+	Deck        Deck
+	Players     []Player `json:"players"`
+	GameOver    bool     `json:"gameOver"`
+	CurrentTurn Turn     `json:"currentTurn"`
+	InProgress  bool     `json:"inProgress"`
+}
+
+type Turn struct {
+	Player    Player
+	TempBoard Board
+	StartedAt time.Time
+	IsValid   bool
 }
 
 func NewGame() Game {
 	return Game{
-		id:    generateID(),
+		ID:    "game_" + utils.GenerateID(),
 		Deck:  CreateDeck(),
 		Board: Board{},
 	}
-}
-
-func generateID() string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-	b := make([]byte, 4)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
-	}
-	return string(b)
 }

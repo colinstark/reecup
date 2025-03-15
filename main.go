@@ -1,17 +1,39 @@
 package main
 
 import (
-	"fmt"
-	"reecup/game"
+	"log"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"reecup/server"
+	"strings"
 )
 
 func main() {
-	fmt.Println("Welcome to ReeCup")
-	new_game := game.NewGame()
+	dev := true
+	server := server.NewGameServer()
 
-	new_game.Players = append(new_game.Players, game.NewPlayer("Pauly", new_game.Deck))
-	new_game.Players = append(new_game.Players, game.NewPlayer("Christopher", new_game.Deck))
+	if dev == true {
+		proxy := httputil.NewSingleHostReverseProxy(&url.URL{
+			Scheme: "http",
+			Host:   "localhost:5173",
+		})
 
-	fmt.Println("created game", new_game)
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ws") {
+				http.NotFound(w, r)
+				return
+			}
+			proxy.ServeHTTP(w, r)
+		})
+	} else {
+		fs := http.FileServer(http.Dir("./public"))
+		http.Handle("/", fs)
+	}
 
+	http.HandleFunc("/api/", server.HandleAPI)
+	http.HandleFunc("/ws", server.HandleWebSocket)
+
+	log.Println("Server starting on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

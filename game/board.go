@@ -1,40 +1,40 @@
 package game
 
-type Chain struct {
-	sequential bool
-	Stones     []Stone
-}
-
 type Board struct {
-	Chains        []Chain
-	floatingJoker bool
+	Sets []Set   `json:"sets"`
+	Pool []Stone `json:"pool"`
 }
 
-func (b Board) AllChainsValid() bool {
-	for _, chain := range b.Chains {
-		if chain.ChainValid() == false {
+
+func (b Board) AllSetsValid() bool {
+	if len(b.Pool) != 0 {
+		return false
+	}
+	for _, Set := range b.Sets {
+		if Set.Validate() == false {
 			return false
 		}
 	}
 	return true
 }
 
-func (c Chain) ChainValid() bool {
-	if c.sequential == true {
-		// make sure order is correct, including 13 -> 1
-		// make sure only one color
-	} else {
-		// make sure all faces are equal or joker
-		// make sure only different colors
-	}
-	return false
-}
 
-func (b *Board) AddChain(sequential bool, stones []Stone) error {
-	// check if valid chain
-	b.Chains = append(b.Chains, Chain{
-		sequential: sequential,
-		Stones:     stones,
-	})
-	return nil
-}
+// func (b *Board) AddChain(sequential bool, stones []Stone) error {
+// 	chain := Set{
+// 		sequential: sequential,
+// 		Stones:     stones,
+// 	}
+// 	if chain.SetValid() {
+// 		b.Sets = append(b.Sets, chain)
+// 		return nil
+// 	} else {
+// 		return errors.New("not a valid chain")
+// 	}
+// }
+
+// func (b *Board) PopSet(idx int) Set {
+// 	// pop chain for modification at idx
+// 	//return chain
+
+// 	return Set{}
+// }
