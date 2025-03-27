@@ -19,18 +19,12 @@ func (b Board) AllSetsValid() bool {
 }
 
 
-// func (b *Board) AddChain(sequential bool, stones []Stone) error {
-// 	chain := Set{
-// 		sequential: sequential,
-// 		Stones:     stones,
-// 	}
-// 	if chain.SetValid() {
-// 		b.Sets = append(b.Sets, chain)
-// 		return nil
-// 	} else {
-// 		return errors.New("not a valid chain")
-// 	}
-// }
+func (b *Board) AddSet(stones []Stone) {
+	set := Set{
+		Stones: stones,
+	}
+	b.Sets = append(b.Sets, set)
+}
 
 // func (b *Board) PopSet(idx int) Set {
 // 	// pop chain for modification at idx
