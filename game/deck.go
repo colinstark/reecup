@@ -33,7 +33,7 @@ func (d *Deck) fillDeck() {
 }
 
 func (d *Deck) Draw() (Stone, error) {
-	if len(d.stones) > 0 {
+	if len(d.stones) < 1 {
 		return Stone{}, errors.New("No more stones")
 	}
 	stone := d.stones[0]

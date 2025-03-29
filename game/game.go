@@ -11,8 +11,8 @@ type Game struct {
 	Board       Board     `json:"board"`
 	Deck        Deck
 	Players     []Player `json:"players"`
-	GameOver    bool     `json:"gameOver"`
 	CurrentTurn Turn     `json:"currentTurn"`
+	GameOver    bool     `json:"gameOver"`
 	InProgress  bool     `json:"inProgress"`
 }
 
