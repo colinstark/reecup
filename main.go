@@ -31,7 +31,6 @@ func main() {
 		http.Handle("/", fs)
 	}
 
-	http.HandleFunc("/api/", server.HandleAPI)
 	http.HandleFunc("/ws", server.HandleWebSocket)
 
 	log.Println("Server starting on :8080")

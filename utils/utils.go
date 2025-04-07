@@ -1,6 +1,9 @@
 package utils
 
-import "math/rand"
+import (
+	"fmt"
+	"math/rand"
+)
 
 func GenerateID() string {
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -10,4 +13,9 @@ func GenerateID() string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+func GenerateIDFor(prefix string) string {
+	randomID := GenerateID()
+	return fmt.Sprintf("%v_%v", prefix, randomID)
 }
