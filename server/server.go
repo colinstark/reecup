@@ -114,6 +114,28 @@ func (s *GameServer) handleError(instruction string, error string, senderID stri
 	s.clients[senderID].WriteMessage(websocket.TextMessage, responseJSON)
 }
 
+func (s *GameServer) Broadcast(instruction string, data map[string]interface{}) {
+	responseJSON, _ := json.Marshal(data)
+
+	for _, conn := range s.clients {
+		conn.WriteMessage(websocket.TextMessage, responseJSON)
+	}
+}
+
+func (s *GameServer) NotifyPlayersOfGame(gameID string, instruction string, data map[string]interface{}) {
+	// @TODO: Make this work
+	// responseJSON, _ := json.Marshal(data)
+
+	// for _, conn := range Game.players {
+	// 	conn.WriteMessage(websocket.TextMessage, responseJSON)
+	// }
+}
+
+func (s *GameServer) SendMessage(targetID string, instruction string, data map[string]interface{}) {
+	responseJSON, _ := json.Marshal(data)
+	s.clients[targetID].WriteMessage(websocket.TextMessage, responseJSON)
+}
+
 func getUserIDFromRequest(r *http.Request) string {
 	return r.URL.Query().Get("userID")
 }

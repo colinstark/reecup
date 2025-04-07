@@ -9,11 +9,8 @@ import (
 )
 
 func (s *GameServer) handleLogin(data map[string]interface{}) {
+	// to implement. takes a userID and either creates a new user or retrieves the one stored in localstorage
 }
-
-func (s *GameServer) handleLogin(data map[string]interface{}) {
-}
-
 
 func (s *GameServer) handleGetDeck(data map[string]interface{}, userID string) {
 	deck := game.CreateDeck()
