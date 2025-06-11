@@ -1,7 +1,8 @@
 package game
 
 type Player struct {
-	UserID  string  `json:"userID"`
+	ID      string  `json:"userID"`
+	Name    string  `json:"userName"`
 	Hand    []Stone `json:"hand"`
 	HasMeld bool    `json:"hasMeld"`
 }
