@@ -13,7 +13,7 @@ type Game struct {
 	Players     []Player `json:"players"`
 	CurrentTurn Turn     `json:"currentTurn"`
 	GameOver    bool     `json:"gameOver"`
-	InProgress  bool     `json:"inProgress"`
+	State       string   `json:"state"`
 }
 
 type Turn struct {
@@ -28,5 +28,6 @@ func NewGame() Game {
 		ID:    "game_" + utils.GenerateID(),
 		Deck:  CreateDeck(),
 		Board: Board{},
+		State: "waiting",
 	}
 }
