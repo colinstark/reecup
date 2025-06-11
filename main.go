@@ -20,7 +20,7 @@ func main() {
 		})
 
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ws") {
+			if strings.HasPrefix(r.URL.Path, "/ws") {
 				http.NotFound(w, r)
 				return
 			}
