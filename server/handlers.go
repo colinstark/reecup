@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"log"
+	"math/rand"
 	"reecup/game"
 	"strconv"
 	"time"
@@ -60,17 +61,9 @@ func (s *GameServer) handleLogout(data map[string]any, userID userID) {
 	s.userMutex.Unlock()
 
 	// Notify all other users that this user has logged out
-	broadcastData := map[string]any{
-		"instruction": "user_logout",
-		"userID":      userID,
-	}
-	responseJSON, _ := json.Marshal(broadcastData)
-
-	for id, conn := range s.Connections {
-		if id != userID { // Don't send to the user who's logging out
-			conn.WriteMessage(websocket.TextMessage, responseJSON)
-		}
-	}
+	s.Broadcast("user_logout", map[string]any{
+		"userID": userID,
+	})
 
 	// Send confirmation to the logging out user
 	s.handleError("logout", "success", userID)
@@ -80,13 +73,10 @@ func (s *GameServer) handleGetDeck(data map[string]any, userID string) {
 	deck := game.CreateDeck()                   // Creates a new deck with stones
 	hand := game.DrawForNewPlayer(userID, deck) // Draw initial hand for player
 
-	responseJSON, _ := json.Marshal(map[string]any{
-		"instruction": "new_deck",
-		"hand":        hand,
-		"remaining":   deck.GetCount(),
+	s.Send(userID, "new_deck", map[string]any{
+		"hand":      hand,
+		"remaining": deck.GetCount(),
 	})
-
-	s.Connections[userID].WriteMessage(websocket.TextMessage, responseJSON)
 }
 
 func (s *GameServer) handleUpdateCursor(data map[string]any, userID string) {
@@ -138,14 +128,9 @@ func (s *GameServer) handleNewGame(userID string) {
 	s.gameMutex.Unlock()
 
 	// Notify all users about new game
-	broadcastData := map[string]any{
-		"instruction": "game_created",
-		"game":        newGame,
-	}
-	responseJSON, _ := json.Marshal(broadcastData)
-	for id, _ := range s.Users {
-		s.Connections[id].WriteMessage(websocket.TextMessage, responseJSON)
-	}
+	s.Broadcast("game_created", map[string]any{
+		"game": newGame,
+	})
 }
 
 func (s *GameServer) handleListGames(data map[string]any, userID string) {
@@ -158,11 +143,9 @@ func (s *GameServer) handleListGames(data map[string]any, userID string) {
 	}
 	s.gameMutex.RUnlock()
 
-	responseJSON, _ := json.Marshal(map[string]any{
-		"instruction": "games_list",
-		"games":       gamesList,
+	s.Send(userID, "games_list", map[string]any{
+		"games": gamesList,
 	})
-	s.Connections[userID].WriteMessage(websocket.TextMessage, responseJSON)
 }
 
 func (s *GameServer) handleJoinGame(data map[string]any, userID string) {
@@ -173,7 +156,7 @@ func (s *GameServer) handleJoinGame(data map[string]any, userID string) {
 	}
 
 	s.gameMutex.Lock()
-	game, exists := s.Games[gameID]
+	gameData, exists := s.Games[gameID]
 	if !exists {
 		s.gameMutex.Unlock()
 		s.handleError("join_game", "game not found", userID)
@@ -181,7 +164,7 @@ func (s *GameServer) handleJoinGame(data map[string]any, userID string) {
 	}
 
 	// Check if player is already in game
-	for _, player := range game.Players {
+	for _, player := range gameData.Players {
 		if player.Name == userID {
 			s.gameMutex.Unlock()
 			s.handleError("join_game", "already in game", userID)
@@ -190,8 +173,10 @@ func (s *GameServer) handleJoinGame(data map[string]any, userID string) {
 	}
 
 	// Add player to game
-	// game.Players = append(game.Players, s.Users[userID]) @TODO fix this
-	s.Games[gameID] = game
+	userInfo := s.Users[userID]
+	newPlayer := game.NewPlayer(userID, userInfo.Name)
+	gameData.Players = append(gameData.Players, newPlayer)
+	s.Games[gameID] = gameData
 	s.gameMutex.Unlock()
 
 	// Notify all users about player joining
@@ -199,10 +184,10 @@ func (s *GameServer) handleJoinGame(data map[string]any, userID string) {
 		"instruction": "player_joined",
 		"gameID":      gameID,
 		"playerID":    userID,
-		"game":        game,
+		"game":        gameData,
 	}
 
-	s.Broadcast("banana", broadcastData)
+	s.BroadcastInGame(gameID, "player_joined", broadcastData)
 }
 
 func (s *GameServer) handleCancelGame(data map[string]any, userID string) {
@@ -227,23 +212,219 @@ func (s *GameServer) handleCancelGame(data map[string]any, userID string) {
 		return
 	}
 
-	// Remove the game from the games map
-	delete(s.Games, gameID)
-	s.gameMutex.Unlock()
-
-	// Notify all users about game cancellation
+	// Notify players in the game before deleting it
 	broadcastData := map[string]any{
 		"instruction": "game_cancelled",
 		"gameID":      gameID,
 	}
 
-	s.Broadcast("game_cancelled", broadcastData)
+	s.BroadcastInGame(gameID, "game_cancelled", broadcastData)
+
+	// Remove the game from the games map
+	delete(s.Games, gameID)
+	s.gameMutex.Unlock()
 
 	// Send success response to the user who cancelled
 	s.Send(userID, "cancel_game", map[string]any{
 		"success": true,
 		"gameID":  gameID,
 	})
+}
+
+func (s *GameServer) handleStartGame(data map[string]any, userID string) {
+	gameID, ok := data["gameID"].(string)
+	if !ok {
+		s.handleError("start_game", "invalid game ID", userID)
+		return
+	}
+
+	s.gameMutex.Lock()
+	game, exists := s.Games[gameID]
+	if !exists {
+		s.gameMutex.Unlock()
+		s.handleError("start_game", "game not found", userID)
+		return
+	}
+
+	// Check if game is in waiting state - if not, return error
+	if game.State != "waiting" {
+		s.gameMutex.Unlock()
+		s.handleError("start_game", "game is not in waiting state", userID)
+		return
+	}
+
+	// Check if there are players in the game
+	if len(game.Players) == 0 {
+		s.gameMutex.Unlock()
+		s.handleError("start_game", "no players in game", userID)
+		return
+	}
+
+	// Randomly select the first player
+	rand.Seed(time.Now().UnixNano())
+	randomIndex := rand.Intn(len(game.Players))
+	game.CurrentPlayerTurn = &game.Players[randomIndex]
+
+	// Update game state to in_progress
+	game.State = "in_progress"
+	game.StartedAt = time.Now()
+
+	// Initialize the first turn
+	game.StartNewTurn()
+
+	s.Games[gameID] = game
+	s.gameMutex.Unlock()
+
+	// Notify all users about game starting
+	broadcastData := map[string]any{
+		"instruction":   "game_started",
+		"gameID":        gameID,
+		"game":          game,
+		"currentPlayer": game.CurrentPlayerTurn,
+	}
+
+	s.BroadcastInGame(gameID, "game_started", broadcastData)
+
+	// Send success response to the user who started the game
+	s.Send(userID, "start_game", map[string]any{
+		"success": true,
+		"gameID":  gameID,
+	})
+}
+
+func (s *GameServer) handleDrawStone(data map[string]any, userID string) {
+	gameID, ok := data["gameID"].(string)
+	if !ok {
+		s.handleError("draw_stone", "invalid game ID", userID)
+		return
+	}
+
+	s.gameMutex.Lock()
+	game, exists := s.Games[gameID]
+	if !exists {
+		s.gameMutex.Unlock()
+		s.handleError("draw_stone", "game not found", userID)
+		return
+	}
+
+	// Check if game is in progress
+	if game.State != "in_progress" {
+		s.gameMutex.Unlock()
+		s.handleError("draw_stone", "game is not in progress", userID)
+		return
+	}
+
+	// Check if it's the player's turn
+	if game.CurrentPlayerTurn == nil || game.CurrentPlayerTurn.ID != userID {
+		s.gameMutex.Unlock()
+		s.handleError("draw_stone", "not your turn", userID)
+		return
+	}
+
+	// Draw a stone from the deck
+	stone, err := game.Deck.Draw()
+	if err != nil {
+		s.gameMutex.Unlock()
+		s.handleError("draw_stone", "no more stones in deck", userID)
+		return
+	}
+
+	// Add stone to player's hand
+	for i := range game.Players {
+		if game.Players[i].ID == userID {
+			game.Players[i].Hand = append(game.Players[i].Hand, stone)
+			// Update the CurrentPlayerTurn pointer to point to the updated player
+			game.CurrentPlayerTurn = &game.Players[i]
+			break
+		}
+	}
+
+	// Advance to next player's turn after drawing
+	game.NextPlayerTurn()
+	s.Games[gameID] = game
+	s.gameMutex.Unlock()
+
+	// Send the drawn stone to the player
+	s.Send(userID, "stone_drawn", map[string]any{
+		"success":        true,
+		"stone":          stone,
+		"remaining_deck": game.Deck.GetCount(),
+		"currentPlayer":  game.CurrentPlayerTurn,
+	})
+
+	// Broadcast turn change to all players in the game
+	s.BroadcastInGame(gameID, "turn_changed", map[string]any{
+		"currentPlayer": game.CurrentPlayerTurn,
+		"reason":        "stone_drawn",
+	})
+
+	log.Println("Player", userID, "drew stone:", stone, "- Next player:", game.CurrentPlayerTurn.ID)
+}
+
+func (s *GameServer) handleFinishTurn(data map[string]any, userID string) {
+	gameID, ok := data["gameID"].(string)
+	if !ok {
+		s.handleError("finish_turn", "invalid game ID", userID)
+		return
+	}
+
+	s.gameMutex.Lock()
+	game, exists := s.Games[gameID]
+	if !exists {
+		s.gameMutex.Unlock()
+		s.handleError("finish_turn", "game not found", userID)
+		return
+	}
+
+	// Check if game is in progress
+	if game.State != "in_progress" {
+		s.gameMutex.Unlock()
+		s.handleError("finish_turn", "game is not in progress", userID)
+		return
+	}
+
+	// Check if it's the player's turn
+	if game.CurrentPlayerTurn == nil || game.CurrentPlayerTurn.ID != userID {
+		s.gameMutex.Unlock()
+		s.handleError("finish_turn", "not your turn", userID)
+		return
+	}
+
+	// Validate the current turn's TempBoard
+	if !game.CurrentTurn.TempBoard.AllSetsValid() {
+		s.gameMutex.Unlock()
+		s.handleError("finish_turn", "invalid board configuration", userID)
+		return
+	}
+
+	// If valid, replace the game's board with the TempBoard
+	game.Board = game.CurrentTurn.TempBoard
+	game.CurrentTurn.IsValid = true
+
+	// Advance to next player's turn
+	game.NextPlayerTurn()
+	s.Games[gameID] = game
+	s.gameMutex.Unlock()
+
+	// Broadcast the turn change to all players in the game
+	broadcastData := map[string]any{
+		"instruction":   "turn_finished",
+		"gameID":        gameID,
+		"currentPlayer": game.CurrentPlayerTurn,
+		"board":         game.Board,
+	}
+
+	s.BroadcastInGame(gameID, "turn_finished", broadcastData)
+
+	// Send success response to the user who finished their turn
+	s.Send(userID, "finish_turn", map[string]any{
+		"success":       true,
+		"gameID":        gameID,
+		"currentPlayer": game.CurrentPlayerTurn,
+		"board":         game.Board,
+	})
+
+	log.Println("Player", userID, "finished turn with valid board. Next player:", game.CurrentPlayerTurn.ID)
 }
 
 func generateGameID() gameID {
