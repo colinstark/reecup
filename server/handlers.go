@@ -390,41 +390,116 @@ func (s *GameServer) handleFinishTurn(data map[string]any, userID string) {
 		return
 	}
 
+	// First, validate that the pool is empty
+	if !game.IsTempBoardPoolEmpty() {
+		s.gameMutex.Unlock()
+		log.Println("Player", userID, "attempted to finish turn with stones remaining in pool")
+		s.handleError("finish_turn", "pool is not empty - all stones must be placed in sets", userID)
+		return
+	}
+
 	// Validate the current turn's TempBoard
 	if !game.CurrentTurn.TempBoard.AllSetsValid() {
 		s.gameMutex.Unlock()
+		log.Println("Player", userID, "attempted to finish turn with invalid board configuration")
 		s.handleError("finish_turn", "invalid board configuration", userID)
 		return
+	}
+
+	// Check if current player needs to achieve meld
+	var playerNeedsMeld bool
+	var playerIndex int
+	for i := range game.Players {
+		if game.Players[i].ID == userID {
+			playerIndex = i
+			playerNeedsMeld = !game.Players[i].HasMeld
+			break
+		}
+	}
+
+	// If player doesn't have meld, check if they achieved it this turn
+	if playerNeedsMeld {
+		if !game.CheckMeld() {
+			s.gameMutex.Unlock()
+			log.Println("Player", userID, "attempted to finish turn without achieving required meld (30+ points)")
+			s.handleError("finish_turn", "must play stones worth more than 30 points for initial meld", userID)
+			return
+		}
+		// Player achieved meld, update their status
+		game.Players[playerIndex].HasMeld = true
+		// Update the CurrentPlayerTurn pointer to reflect the change
+		game.CurrentPlayerTurn = &game.Players[playerIndex]
+		log.Println("Player", userID, "achieved initial meld!")
 	}
 
 	// If valid, replace the game's board with the TempBoard
 	game.Board = game.CurrentTurn.TempBoard
 	game.CurrentTurn.IsValid = true
 
-	// Advance to next player's turn
-	game.NextPlayerTurn()
+	// Check if current player has won (empty hand)
+	var winnerPlayerIndex = -1
+	for i := range game.Players {
+		if game.Players[i].ID == userID {
+			if len(game.Players[i].Hand) == 0 {
+				// Player has won!
+				game.State = "finished"
+				game.GameOver = true
+				winnerPlayerIndex = i
+				break
+			}
+		}
+	}
+
+	// If game is not over, advance to next player's turn
+	if !game.GameOver {
+		game.NextPlayerTurn()
+	}
+
 	s.Games[gameID] = game
 	s.gameMutex.Unlock()
 
-	// Broadcast the turn change to all players in the game
-	broadcastData := map[string]any{
-		"instruction":   "turn_finished",
-		"gameID":        gameID,
-		"currentPlayer": game.CurrentPlayerTurn,
-		"board":         game.Board,
+	if game.GameOver && winnerPlayerIndex >= 0 {
+		// Broadcast game over message
+		broadcastData := map[string]any{
+			"instruction": "game_over",
+			"gameID":      gameID,
+			"winner":      game.Players[winnerPlayerIndex],
+			"board":       game.Board,
+		}
+
+		s.BroadcastInGame(gameID, "game_over", broadcastData)
+
+		// Send success response to the winner
+		s.Send(userID, "finish_turn", map[string]any{
+			"success":  true,
+			"gameID":   gameID,
+			"gameOver": true,
+			"winner":   game.Players[winnerPlayerIndex],
+			"board":    game.Board,
+		})
+
+		log.Println("Player", userID, "won the game!")
+	} else {
+		// Broadcast the turn change to all players in the game
+		broadcastData := map[string]any{
+			"instruction":   "turn_finished",
+			"gameID":        gameID,
+			"currentPlayer": game.CurrentPlayerTurn,
+			"board":         game.Board,
+		}
+
+		s.BroadcastInGame(gameID, "turn_finished", broadcastData)
+
+		// Send success response to the user who finished their turn
+		s.Send(userID, "finish_turn", map[string]any{
+			"success":       true,
+			"gameID":        gameID,
+			"currentPlayer": game.CurrentPlayerTurn,
+			"board":         game.Board,
+		})
+
+		log.Println("Player", userID, "finished turn with valid board. Next player:", game.CurrentPlayerTurn.ID)
 	}
-
-	s.BroadcastInGame(gameID, "turn_finished", broadcastData)
-
-	// Send success response to the user who finished their turn
-	s.Send(userID, "finish_turn", map[string]any{
-		"success":       true,
-		"gameID":        gameID,
-		"currentPlayer": game.CurrentPlayerTurn,
-		"board":         game.Board,
-	})
-
-	log.Println("Player", userID, "finished turn with valid board. Next player:", game.CurrentPlayerTurn.ID)
 }
 
 func generateGameID() gameID {

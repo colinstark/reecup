@@ -33,8 +33,6 @@ func NewGame() Game {
 	}
 }
 
-// NextPlayerTurn advances to the next player's turn, cycling back to the first player
-// if the current player is the last one in the array
 func (g *Game) NextPlayerTurn() {
 	if len(g.Players) == 0 {
 		g.CurrentPlayerTurn = nil
@@ -42,13 +40,11 @@ func (g *Game) NextPlayerTurn() {
 	}
 
 	if g.CurrentPlayerTurn == nil {
-		// If no current player, start with the first one
 		g.CurrentPlayerTurn = &g.Players[0]
 		g.StartNewTurn()
 		return
 	}
 
-	// Find the current player's index
 	currentIndex := -1
 	for i, player := range g.Players {
 		if player.ID == g.CurrentPlayerTurn.ID {
@@ -57,20 +53,17 @@ func (g *Game) NextPlayerTurn() {
 		}
 	}
 
-	// If current player not found, default to first player
 	if currentIndex == -1 {
 		g.CurrentPlayerTurn = &g.Players[0]
 		g.StartNewTurn()
 		return
 	}
 
-	// Move to next player, cycling back to 0 if at the end
 	nextIndex := (currentIndex + 1) % len(g.Players)
 	g.CurrentPlayerTurn = &g.Players[nextIndex]
 	g.StartNewTurn()
 }
 
-// StartNewTurn initializes a new turn for the current player with the current board state
 func (g *Game) StartNewTurn() {
 	if g.CurrentPlayerTurn == nil {
 		return
@@ -82,4 +75,30 @@ func (g *Game) StartNewTurn() {
 		StartedAt: time.Now(),
 		IsValid:   false,
 	}
+}
+
+func (g *Game) calculateBoardValue(board Board) int {
+	totalValue := 0
+
+	for _, set := range board.Sets {
+		for _, stone := range set.Stones {
+			if !stone.Joker {
+				totalValue += stone.Face
+			}
+		}
+	}
+
+	return totalValue
+}
+
+func (g *Game) CheckMeld() bool {
+	originalValue := g.calculateBoardValue(g.Board)
+	tempValue := g.calculateBoardValue(g.CurrentTurn.TempBoard)
+
+	difference := tempValue - originalValue
+	return difference > 30
+}
+
+func (g *Game) IsTempBoardPoolEmpty() bool {
+	return len(g.CurrentTurn.TempBoard.Pool) == 0
 }
