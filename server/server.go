@@ -90,14 +90,16 @@ func (s *GameServer) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			s.handleNewGame(userID)
 		case "list_games":
 			s.handleListGames(data, userID)
+		case "start_game":
+			s.handleStartGame(data, userID)
 		case "cancel_game":
 			s.handleCancelGame(data, userID)
 		case "join_game":
 			s.handleJoinGame(data, userID)
 		case "draw_stone":
-			// s.handleDrawStone(data, userID)
+			s.handleDrawStone(data, userID)
 		case "finish_turn":
-			// s.handleFinishTurn(data, userID)
+			s.handleFinishTurn(data, userID)
 		case "get_deck":
 			s.handleGetDeck(data, userID)
 		case "update_cursor":
@@ -162,14 +164,26 @@ func (s *GameServer) Broadcast(instruction string, data map[string]any) {
 	}
 }
 
-func (s *GameServer) BroadcastInGame(gameID string, instruction string, data map[string]interface{}) {
-	// @TODO: Make this work
-	//
-	// json, _ := marshal(instruction, data)
+func (s *GameServer) BroadcastInGame(gameID string, instruction string, data map[string]any) {
+	s.gameMutex.RLock()
+	game, exists := s.Games[gameID]
+	if !exists {
+		s.gameMutex.RUnlock()
+		return
+	}
+	s.gameMutex.RUnlock()
 
-	// for _, user := range Game.Players {
-	// 	user.Conn.WriteMessage(websocket.TextMessage, json)
-	// }
+	json, err := marshal(instruction, data)
+	if err != nil {
+		return
+	}
+
+	// Send message only to players in this game
+	for _, player := range game.Players {
+		if conn, exists := s.Connections[player.ID]; exists {
+			conn.WriteMessage(websocket.TextMessage, json)
+		}
+	}
 }
 
 func marshal(instruction string, data map[string]any) ([]byte, error) {
