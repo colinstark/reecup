@@ -6,3 +6,12 @@ type Player struct {
 	Hand    []Stone `json:"hand"`
 	HasMeld bool    `json:"hasMeld"`
 }
+
+func NewPlayer(id, name string) Player {
+	return Player{
+		ID:      id,
+		Name:    name,
+		Hand:    []Stone{},
+		HasMeld: false,
+	}
+}
