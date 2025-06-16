@@ -121,6 +121,9 @@ func (s *GameServer) handleUpdateCursor(data map[string]any, userID string) {
 
 func (s *GameServer) handleNewGame(userID string) {
 	newGame := game.NewGame()
+	userInfo := s.Users[userID]
+	creatorPlayer := game.NewPlayer(userID, userInfo.Name)
+	newGame.Players = append(newGame.Players, creatorPlayer)
 
 	s.gameMutex.Lock()
 	s.Games[newGame.ID] = newGame
@@ -162,9 +165,17 @@ func (s *GameServer) handleJoinGame(data map[string]any, userID string) {
 		return
 	}
 
+	// Check if game is full
+
+	if len(gameData.Players) == 4 {
+		s.gameMutex.Unlock()
+		s.handleError("join_game", "game is full", userID)
+		return
+	}
+
 	// Check if player is already in game
 	for _, player := range gameData.Players {
-		if player.Name == userID {
+		if player.ID == userID {
 			s.gameMutex.Unlock()
 			s.handleError("join_game", "already in game", userID)
 			return
@@ -251,9 +262,9 @@ func (s *GameServer) handleStartGame(data map[string]any, userID string) {
 	}
 
 	// Check if there are players in the game
-	if len(game.Players) == 0 {
+	if len(game.Players) < 2 {
 		s.gameMutex.Unlock()
-		s.handleError("start_game", "no players in game", userID)
+		s.handleError("start_game", "not enough players in game", userID)
 		return
 	}
 
