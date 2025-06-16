@@ -120,11 +120,10 @@ func (s *GameServer) handleUpdateCursor(data map[string]any, userID string) {
 }
 
 func (s *GameServer) handleNewGame(userID string) {
-	gameID := generateGameID()
 	newGame := game.NewGame()
 
 	s.gameMutex.Lock()
-	s.Games[gameID] = newGame
+	s.Games[newGame.ID] = newGame
 	s.gameMutex.Unlock()
 
 	// Notify all users about new game
@@ -196,9 +195,10 @@ func (s *GameServer) handleCancelGame(data map[string]any, userID string) {
 		s.handleError("cancel_game", "invalid game ID", userID)
 		return
 	}
-
 	s.gameMutex.Lock()
-	game, exists := s.Games[gameID]
+
+	gameData, exists := s.Games[gameID]
+
 	if !exists {
 		s.gameMutex.Unlock()
 		s.handleError("cancel_game", "game not found", userID)
@@ -206,7 +206,7 @@ func (s *GameServer) handleCancelGame(data map[string]any, userID string) {
 	}
 
 	// Check if game is in progress - if so, return error
-	if game.State == "in_progress" {
+	if gameData.State == "in_progress" {
 		s.gameMutex.Unlock()
 		s.handleError("cancel_game", "cannot cancel game in progress", userID)
 		return
@@ -218,13 +218,10 @@ func (s *GameServer) handleCancelGame(data map[string]any, userID string) {
 		"gameID":      gameID,
 	}
 
-	s.BroadcastInGame(gameID, "game_cancelled", broadcastData)
-
-	// Remove the game from the games map
 	delete(s.Games, gameID)
 	s.gameMutex.Unlock()
+	s.BroadcastInGame(gameID, "game_cancelled", broadcastData)
 
-	// Send success response to the user who cancelled
 	s.Send(userID, "cancel_game", map[string]any{
 		"success": true,
 		"gameID":  gameID,
@@ -376,21 +373,18 @@ func (s *GameServer) handleFinishTurn(data map[string]any, userID string) {
 		return
 	}
 
-	// Check if game is in progress
 	if game.State != "in_progress" {
 		s.gameMutex.Unlock()
 		s.handleError("finish_turn", "game is not in progress", userID)
 		return
 	}
 
-	// Check if it's the player's turn
 	if game.CurrentPlayerTurn == nil || game.CurrentPlayerTurn.ID != userID {
 		s.gameMutex.Unlock()
 		s.handleError("finish_turn", "not your turn", userID)
 		return
 	}
 
-	// First, validate that the pool is empty
 	if !game.IsTempBoardPoolEmpty() {
 		s.gameMutex.Unlock()
 		log.Println("Player", userID, "attempted to finish turn with stones remaining in pool")
@@ -398,7 +392,6 @@ func (s *GameServer) handleFinishTurn(data map[string]any, userID string) {
 		return
 	}
 
-	// Validate the current turn's TempBoard
 	if !game.CurrentTurn.TempBoard.AllSetsValid() {
 		s.gameMutex.Unlock()
 		log.Println("Player", userID, "attempted to finish turn with invalid board configuration")
