@@ -3,10 +3,11 @@
 This is a backend server for a rummicup game server, written in Go as a final project of the Boot.dev bootcamp.
 
 ## Why?
-This was a learning project to explore websockets and Go.
+This was a learning project to explore websockets and Go. Maybe I should rebuild it in Crystal with Kemal, it seems to be more ergonomic with great performance.
 
 ## Future
 - Build a real frontend
+- Sync Cursors/Presence
 - Flesh out the tests to handle actual turns
 - Maybe tap into Go concurrency.
 
