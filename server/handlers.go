@@ -35,7 +35,6 @@ func (s *GameServer) handleUpdateName(data map[string]any, userID userID) {
 	})
 }
 
-
 func (s *GameServer) handleGetDeck(data map[string]any, userID string) {
 	deck := game.CreateDeck()                   // Creates a new deck with stones
 	hand := game.DrawForNewPlayer(userID, deck) // Draw initial hand for player
@@ -468,6 +467,8 @@ func (s *GameServer) handleFinishTurn(data map[string]any, userID string) {
 			"currentPlayer": game.CurrentPlayerTurn,
 			"board":         game.Board,
 		})
+
+		game.NextPlayerTurn()
 
 		log.Println("Player", userID, "finished turn with valid board. Next player:", game.CurrentPlayerTurn.ID)
 	}
