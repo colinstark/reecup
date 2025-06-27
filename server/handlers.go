@@ -35,39 +35,6 @@ func (s *GameServer) handleUpdateName(data map[string]any, userID userID) {
 	})
 }
 
-func (s *GameServer) handleLogin(data map[string]any, userID userID) {
-	name, ok := data["name"].(string)
-	if !ok {
-		s.handleError("login", "Invalid name", userID)
-		return
-	}
-
-	s.userMutex.Lock()
-	s.Users[userID] = User{
-		Name: name,
-	}
-	s.userMutex.Unlock()
-
-	// Send success response
-	s.Send(userID, "login", map[string]any{
-		"success": true,
-		"userID":  userID,
-	})
-}
-
-func (s *GameServer) handleLogout(data map[string]any, userID userID) {
-	s.userMutex.Lock()
-	delete(s.Connections, userID)
-	s.userMutex.Unlock()
-
-	// Notify all other users that this user has logged out
-	s.Broadcast("user_logout", map[string]any{
-		"userID": userID,
-	})
-
-	// Send confirmation to the logging out user
-	s.handleError("logout", "success", userID)
-}
 
 func (s *GameServer) handleGetDeck(data map[string]any, userID string) {
 	deck := game.CreateDeck()                   // Creates a new deck with stones
