@@ -1,13 +1,18 @@
 # Reecup
-## A multiplayer browser game inspired by Rommée and Mahjonng.
-
+## A multiplayer browser game inspired by Rummikub and Mahjonng.
+This is a backend server for a rummicup game server, written in Go as a final project of the Boot.dev bootcamp.
 
 ## Why?
-TBD
-This is the logic for a rummicup game server.
+This was a learning project to explore websockets and Go.
+
+## Future
+- Build a real frontend
+- Flesh out the tests to handle actual turns
+- Maybe tap into Go concurrency.
+
 
 ## Quick Start
-TBD
+You'll need Go 1.16 or higher, and Bun/Node installed.
 
 ## 🤝 Contributing
-TBD
+This is a learning project, and I'm not looking for contributors right now..
